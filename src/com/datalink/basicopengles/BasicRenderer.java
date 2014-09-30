@@ -14,62 +14,49 @@ import android.os.SystemClock;
 
 public class BasicRenderer implements Renderer{
 
-    // New class members
-    /** Store our model data in a float buffer. */
     private final FloatBuffer mTriangle1Vertices;
-    //private final FloatBuffer mTriangle2Vertices;
-    //private final FloatBuffer mTriangle3Vertices;
-
-    /** How many bytes per float. */
     private final int mBytesPerFloat = 4;
+    
+    private float[] mViewMatrix = new float[16];
+    private float[] mProjectionMatrix = new float[16];
+    private float[] mModelMatrix = new float[16];
+    private float[] mMVPMatrix = new float[16];
 
-    /**
-     * Initialize the model data.
-     */
+    private int mMVPMatrixHandle;
+    private int mPositionHandle;
+    private int mColorHandle;
+
+    private final int mStrideBytes = 7 * mBytesPerFloat;
+
+    private final int mPositionOffset = 0;
+    private final int mPositionDataSize = 3;
+
+    private final int mColorOffset = 3;
+    private final int mColorDataSize = 4;
+    
     public BasicRenderer()
     {
         // This triangle is red, green, and blue.
-        final float[] triangle1VerticesData = {
-                // X, Y, Z,
-                // R, G, B, A
-                -0.5f, -0.25f, 0.0f,
-                1.0f, 0.0f, 0.0f, 1.0f,
+        final float[] triangleVerticesData = 
+        {
+            // X, Y, Z,
+            // R, G, B, A
+            -0.5f, -0.25f, 0.0f,
+            1.0f, 0.0f, 0.0f, 1.0f,
 
-                0.5f, -0.25f, 0.0f,
-                0.0f, 0.0f, 1.0f, 1.0f,
+            0.5f, -0.25f, 0.0f,
+            0.0f, 0.0f, 1.0f, 1.0f,
 
-                0.0f, 0.559016994f, 0.0f,
-                0.0f, 1.0f, 0.0f, 1.0f};
-
-        //...
-
-        // Initialize the buffers.
-        mTriangle1Vertices = ByteBuffer.allocateDirect(triangle1VerticesData.length * mBytesPerFloat)
+            0.0f, 0.559016994f, 0.0f,
+            0.0f, 1.0f, 0.0f, 1.0f
+        };
+        
+        mTriangle1Vertices = ByteBuffer.allocateDirect(triangleVerticesData.length * mBytesPerFloat)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
 
-        //...
-
-        mTriangle1Vertices.put(triangle1VerticesData).position(0);
-
-        //...
+        mTriangle1Vertices.put(triangleVerticesData).position(0);
     }
-    // New class definitions
-    /**
-     * Store the view matrix. This can be thought of as our camera. This matrix transforms world space to eye space;
-     * it positions things relative to our eye.
-     */
-    private float[] mViewMatrix = new float[16];
-    
-    //New class members
-    /** This will be used to pass in the transformation matrix. */
-    private int mMVPMatrixHandle;
-
-    /** This will be used to pass in model position information. */
-    private int mPositionHandle;
-
-    /** This will be used to pass in model color information. */
-    private int mColorHandle;
-
+ 
     @Override
     public void onSurfaceCreated(GL10 glUnused, EGLConfig config)
     {
@@ -96,15 +83,11 @@ public class BasicRenderer implements Renderer{
         // view matrix. In OpenGL 2, we can keep track of these matrices separately if we choose.
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
-        //...
-
-        // Load in the shaders.
         int vertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, vertexShader);
         int fragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, fragmentShader);
 
         int programHandle = programBoilerplate(vertexShaderHandle, fragmentShaderHandle);
     
-        // Set program handles. These will later be used to pass in values to the program.
         mMVPMatrixHandle = GLES20.glGetUniformLocation(programHandle, "u_MVPMatrix");
         mPositionHandle = GLES20.glGetAttribLocation(programHandle, "a_Position");
         mColorHandle = GLES20.glGetAttribLocation(programHandle, "a_Color");
@@ -112,84 +95,6 @@ public class BasicRenderer implements Renderer{
         // Tell OpenGL to use this program when rendering.
         GLES20.glUseProgram(programHandle);
     }
-    
-    int shaderBoilerplate(int shaderType, String shaderProgram)
-    {
-        int shaderHandle = GLES20.glCreateShader(shaderType);
-        String why = "Error creating shader. ";
-        
-        if (shaderHandle != 0)
-        {
-            // Pass in the shader source.
-            GLES20.glShaderSource(shaderHandle, shaderProgram);
-
-            // Compile the shader.
-            GLES20.glCompileShader(shaderHandle);
-
-            // Get the compilation status.
-            final int[] compileStatus = new int[1];
-            GLES20.glGetShaderiv(shaderHandle, GLES20.GL_COMPILE_STATUS, compileStatus, 0);
-
-            // If the compilation failed, delete the shader.
-            if (compileStatus[0] == 0)
-            {
-                why += GLES20.glGetShaderInfoLog(shaderHandle);
-                GLES20.glDeleteShader(shaderHandle);
-                throw new RuntimeException(why);
-            }
-        }
-        else
-        {
-            throw new RuntimeException(why);
-        }
-        
-        return shaderHandle;
-    }
-    
-    int programBoilerplate(int vertexShaderHandle, int fragmentShaderHandle)
-    {
-        // Create a program object and store the handle to it.
-        int programHandle = GLES20.glCreateProgram();
-         
-        if (programHandle != 0)
-        {
-            // Bind the vertex shader to the program.
-            GLES20.glAttachShader(programHandle, vertexShaderHandle);
-         
-            // Bind the fragment shader to the program.
-            GLES20.glAttachShader(programHandle, fragmentShaderHandle);
-         
-            // Bind attributes
-            GLES20.glBindAttribLocation(programHandle, 0, "a_Position");
-            GLES20.glBindAttribLocation(programHandle, 1, "a_Color");
-         
-            // Link the two shaders together into a program.
-            GLES20.glLinkProgram(programHandle);
-         
-            // Get the link status.
-            final int[] linkStatus = new int[1];
-            GLES20.glGetProgramiv(programHandle, GLES20.GL_LINK_STATUS, linkStatus, 0);
-         
-            // If the link failed, delete the program.
-            if (linkStatus[0] == 0)
-            {
-                GLES20.glDeleteProgram(programHandle);
-                programHandle = 0;
-            }
-        }
-         
-        if (programHandle == 0)
-        {
-            throw new RuntimeException("Error creating program.");
-        }
-        
-        return programHandle;
-    }
-
-
-    // New class members
-    /** Store the projection matrix. This is used to project the scene onto a 2D viewport. */
-    private float[] mProjectionMatrix = new float[16];
 
     @Override
     public void onSurfaceChanged(GL10 glUnused, int width, int height)
@@ -210,13 +115,6 @@ public class BasicRenderer implements Renderer{
         Matrix.frustumM(mProjectionMatrix, 0, left, right, bottom, top, near, far);
     }
 
-        // New class members
-    /**
-     * Store the model matrix. This matrix is used to move models from object space (where each model can be thought
-     * of being located at the center of the universe) to world space.
-     */
-    private float[] mModelMatrix = new float[16];
-
     @Override
     public void onDrawFrame(GL10 glUnused)
     {
@@ -230,34 +128,8 @@ public class BasicRenderer implements Renderer{
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 0.0f, 1.0f);
         drawTriangle(mTriangle1Vertices);
-
-        //...
     }
-    
-    // New class members
-/** Allocate storage for the final combined matrix. This will be passed into the shader program. */
-private float[] mMVPMatrix = new float[16];
- 
-/** How many elements per vertex. */
-private final int mStrideBytes = 7 * mBytesPerFloat;
- 
-/** Offset of the position data. */
-private final int mPositionOffset = 0;
- 
-/** Size of the position data in elements. */
-private final int mPositionDataSize = 3;
- 
-/** Offset of the color data. */
-private final int mColorOffset = 3;
- 
-/** Size of the color data in elements. */
-private final int mColorDataSize = 4;
- 
-    /**
-     * Draws a triangle from the given vertex data.
-     *
-     * @param aTriangleBuffer The buffer containing the vertex data.
-     */
+
     private void drawTriangle(final FloatBuffer aTriangleBuffer)
     {
         // Pass in the position information
@@ -311,4 +183,66 @@ private final int mColorDataSize = 4;
             + "{                              \n"
             + "   gl_FragColor = v_Color;     \n"     // Pass the color directly through the pipeline.
             + "}                              \n";
+    
+        
+    int shaderBoilerplate(int shaderType, String shaderProgram)
+    {
+        int shaderHandle = GLES20.glCreateShader(shaderType);
+        String why = "Error creating shader. ";
+        
+        if (shaderHandle != 0)
+        {
+            GLES20.glShaderSource(shaderHandle, shaderProgram);
+            GLES20.glCompileShader(shaderHandle);
+
+            // Get the compilation status.
+            // If the compilation failed, delete the shader.
+            final int[] compileStatus = new int[1];
+            GLES20.glGetShaderiv(shaderHandle, GLES20.GL_COMPILE_STATUS, compileStatus, 0);
+            if (compileStatus[0] == 0)
+            {
+                why += GLES20.glGetShaderInfoLog(shaderHandle);
+                GLES20.glDeleteShader(shaderHandle);
+                throw new RuntimeException(why);
+            }
+        }
+        else
+        {
+            throw new RuntimeException(why);
+        }
+        
+        return shaderHandle;
+    }
+    
+    int programBoilerplate(int vertexShaderHandle, int fragmentShaderHandle)
+    {
+        int programHandle = GLES20.glCreateProgram();
+        String why = "Error creating shader program. ";
+         
+        if (programHandle != 0)
+        {
+            GLES20.glAttachShader(programHandle, vertexShaderHandle);
+            GLES20.glAttachShader(programHandle, fragmentShaderHandle);
+            GLES20.glBindAttribLocation(programHandle, 0, "a_Position");
+            GLES20.glBindAttribLocation(programHandle, 1, "a_Color");
+            GLES20.glLinkProgram(programHandle);
+         
+            // Get the link status.
+            // If the link failed, delete the program.
+            final int[] linkStatus = new int[1];
+            GLES20.glGetProgramiv(programHandle, GLES20.GL_LINK_STATUS, linkStatus, 0);
+            if (linkStatus[0] == 0)
+            {
+                why += GLES20.glGetProgramInfoLog(programHandle);
+                GLES20.glDeleteProgram(programHandle);
+                throw new RuntimeException(why);          
+            }
+        }
+        else
+        {
+            throw new RuntimeException(why);
+        }
+        
+        return programHandle;
+    }
 }
