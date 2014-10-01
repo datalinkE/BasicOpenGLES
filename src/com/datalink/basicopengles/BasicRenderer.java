@@ -40,6 +40,14 @@ public class BasicRenderer implements Renderer{
 	private final FloatBuffer mCubeColors;
 	//private final FloatBuffer mCubeNormals;
     
+	FloatBuffer bufferBoilerplate(final float[] values)
+	{
+	    FloatBuffer result = ByteBuffer.allocateDirect(values.length * mBytesPerFloat)
+                .order(ByteOrder.nativeOrder()).asFloatBuffer();
+        result.put(values).position(0);
+        return result;
+	}
+	
     public BasicRenderer()
     {
         // This triangle is red, green, and blue.
@@ -50,27 +58,25 @@ public class BasicRenderer implements Renderer{
             -0.5f, -0.25f, 0.0f,
             1.0f, 0.0f, 0.0f, 1.0f,
 
+            0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f, 1.0f,
+
+            0.0f, 0.559016994f, 0.0f,
+            0.0f, 1.0f, 0.0f, 1.0f,
+
             0.5f, -0.25f, 0.0f,
             0.0f, 0.0f, 1.0f, 1.0f,
 
             0.0f, 0.559016994f, 0.0f,
+            0.0f, 1.0f, 0.0f, 1.0f,
+
+            0.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 0.0f, 1.0f
         };
         
-        mTriangle1Vertices = ByteBuffer.allocateDirect(triangleVerticesData.length * mBytesPerFloat)
-                .order(ByteOrder.nativeOrder()).asFloatBuffer();
-
-        mTriangle1Vertices.put(triangleVerticesData).position(0);
-        
-        
-        // Initialize the buffers.
-		mCubePositions = ByteBuffer.allocateDirect(CubeData.positionArray.length * mBytesPerFloat)
-        .order(ByteOrder.nativeOrder()).asFloatBuffer();							
-		mCubePositions.put(CubeData.positionArray).position(0);		
-		
-		mCubeColors = ByteBuffer.allocateDirect(CubeData.collorArray.length * mBytesPerFloat)
-        .order(ByteOrder.nativeOrder()).asFloatBuffer();							
-		mCubeColors.put(CubeData.collorArray).position(0);
+        mTriangle1Vertices = bufferBoilerplate(triangleVerticesData);
+		mCubePositions = bufferBoilerplate(CubeData.positionArray);	
+		mCubeColors = bufferBoilerplate(CubeData.collorArray);
         
     }
  
@@ -150,47 +156,47 @@ public class BasicRenderer implements Renderer{
         // Draw the triangle facing straight on.
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 0.0f, 1.0f);
-        drawTriangle(mTriangle1Vertices);
+        drawVertices(mTriangle1Vertices);
         
         // Draw some cubes.        
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 4.0f, 0.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 0.0f, 0.0f);        
-        drawCube();
+        drawVertices(mCubePositions, mCubeColors);
                         
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, -4.0f, 0.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);        
-        drawCube();
+        drawVertices(mCubePositions, mCubeColors);
         
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 4.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 0.0f, 1.0f);        
-        drawCube();
+        drawVertices(mCubePositions, mCubeColors);
         
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, -4.0f, -7.0f);
-        drawCube();
+        drawVertices(mCubePositions, mCubeColors);
         
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -5.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 1.0f, 0.0f);        
-        drawCube();
+        drawVertices(mCubePositions, mCubeColors);
     }
 
-    private void drawTriangle(final FloatBuffer aTriangleBuffer)
+    private void drawVertices(final FloatBuffer coloredPositionsBuffer)
     {
         // Pass in the position information
-        aTriangleBuffer.position(mPositionOffset);
+        coloredPositionsBuffer.position(mPositionOffset);
         GLES20.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES20.GL_FLOAT, false,
-                mStrideBytes, aTriangleBuffer);
+                mStrideBytes, coloredPositionsBuffer);
     
         GLES20.glEnableVertexAttribArray(mPositionHandle);
     
         // Pass in the color information
-        aTriangleBuffer.position(mColorOffset);
+        coloredPositionsBuffer.position(mColorOffset);
         GLES20.glVertexAttribPointer(mColorHandle, mColorDataSize, GLES20.GL_FLOAT, false,
-                mStrideBytes, aTriangleBuffer);
+                mStrideBytes, coloredPositionsBuffer);
     
         GLES20.glEnableVertexAttribArray(mColorHandle);
     
@@ -203,25 +209,26 @@ public class BasicRenderer implements Renderer{
         Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mMVPMatrix, 0);
     
         GLES20.glUniformMatrix4fv(mMVPMatrixHandle, 1, false, mMVPMatrix, 0);
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 3);
+        
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, coloredPositionsBuffer.capacity() / (mPositionDataSize + mColorDataSize));
     }
     
     /**
 	 * Draws a cube.
 	 */			
-	private void drawCube()
+	private void drawVertices(final FloatBuffer positionsBuffer, final FloatBuffer colorsBuffer)
 	{		
 		// Pass in the position information
-		mCubePositions.position(0);		
+		positionsBuffer.position(0);		
         GLES20.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES20.GL_FLOAT, false,
-        		0, mCubePositions);        
+        		0, positionsBuffer);        
                 
         GLES20.glEnableVertexAttribArray(mPositionHandle);        
         
         // Pass in the color information
-        mCubeColors.position(0);
+        colorsBuffer.position(0);
         GLES20.glVertexAttribPointer(mColorHandle, mColorDataSize, GLES20.GL_FLOAT, false,
-        		0, mCubeColors);        
+        		0, colorsBuffer);        
         
         GLES20.glEnableVertexAttribArray(mColorHandle);
         
@@ -236,7 +243,7 @@ public class BasicRenderer implements Renderer{
         GLES20.glUniformMatrix4fv(mMVPMatrixHandle, 1, false, mMVPMatrix, 0);
         
         // Draw the cube.
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 36);                               
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, positionsBuffer.capacity() / mPositionDataSize);                               
 	}
 
     final String vertexShader =
