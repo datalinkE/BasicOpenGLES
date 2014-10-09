@@ -1,5 +1,6 @@
 package com.datalink.basicopengles;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -7,13 +8,19 @@ import java.nio.FloatBuffer;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
+import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.SystemClock;
 
 public class BasicRenderer implements Renderer{
 
+    private final Context mActivityContext;
+    
     private final int mBytesPerFloat = 4;
 
     private float[] mViewMatrix = new float[16];
@@ -29,26 +36,27 @@ public class BasicRenderer implements Renderer{
     private int mColorHandle;
     private int mNormalHandle;
 
-    private final int mPositionOffset = 0;
+    /** Store our model data in a float buffer. */
+    private final FloatBuffer mCubeTextureCoordinates;
+    /** This will be used to pass in the texture. */
+    private int mTextureUniformHandle; 
+    /** This will be used to pass in model texture coordinate information. */
+    private int mTextureCoordinateHandle; 
+    /** Size of the texture coordinate data in elements. */
+    private final int mTextureCoordinateDataSize = 2; 
+    /** This is a handle to our texture data. */
+    private int mTextureDataHandle;
+
     private final int mPositionDataSize = 3;
-
-    private final int mColorOffset = 3;
     private final int mColorDataSize = 4;
-    
     private final int mNormalDataSize = 3;
-
-    private final int mStrideBytes = (mPositionDataSize + mColorDataSize) * mBytesPerFloat;
-
-    // lesson 2
 
     private final FloatBuffer mCubePositions;
     private final FloatBuffer mCubeColors;
     private final FloatBuffer mCubeNormals;
 
     private final float[] mLightPosInModelSpace = {0.0f, 0.0f, 0.0f, 1.0f};
-    /** Used to hold the current position of the light in world space (after transformation via model matrix). */
     private final float[] mLightPosInWorldSpace = new float[4];
-    /** Used to hold the transformed position of the light in eye space (after transformation via modelview matrix) */
     private final float[] mLightPosInEyeSpace = new float[4];
 
     private int mProgramHandle;
@@ -56,7 +64,6 @@ public class BasicRenderer implements Renderer{
 
     float[] crossProduct(float[] fst, float[] sec, boolean normalize)
     {
-        //TODO: proper signs
         float new0 = -fst[1]*sec[2] + fst[2]*sec[1];
         float new1 = -fst[2]*sec[0] + fst[0]*sec[2];
         float new2 = fst[1]*sec[0] - fst[0]*sec[1];
@@ -84,7 +91,6 @@ public class BasicRenderer implements Renderer{
         {
             for (int j = 0; j < mPositionDataSize; j++)
             {
-                //TODO: proper signs
                 fst[j] = vertices[i+j] - vertices[i+strideSize+j];
                 sec[j] = vertices[i+strideSize*2+j] - vertices[i+strideSize+j];
             }
@@ -97,6 +103,46 @@ public class BasicRenderer implements Renderer{
         }
         return result;
     }
+    
+    public static int loadTexture(final String assetPath, Context context)
+    {
+        final int[] textureHandle = new int[1];
+     
+        GLES20.glGenTextures(1, textureHandle, 0);
+     
+        if (textureHandle[0] != 0)
+        {
+            try
+            {
+                InputStream is = context.getAssets().open(assetPath);
+                final Bitmap bitmap = BitmapFactory.decodeStream(is);
+         
+                // Bind to the texture in OpenGL
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
+         
+                // Set filtering
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+         
+                // Load the bitmap into the bound texture.
+                GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+         
+                // Recycle the bitmap, since its data has been loaded into OpenGL.
+                bitmap.recycle();
+            }
+            catch (Exception e)
+            {
+                throw new RuntimeException("Error loading texture file " + assetPath);
+            }
+        }
+     
+        if (textureHandle[0] == 0)
+        {
+            throw new RuntimeException("Error loading texture.");
+        }
+     
+        return textureHandle[0];
+    }
 
     FloatBuffer bufferBoilerplate(final float[] values)
     {
@@ -106,22 +152,22 @@ public class BasicRenderer implements Renderer{
         return result;
     }
 
-    public BasicRenderer()
+    public BasicRenderer(final Context activityContext)
     {
+        mActivityContext = activityContext;
         mCubePositions = bufferBoilerplate(CubeData.positionArray);	
         mCubeColors = bufferBoilerplate(CubeData.collorArray);
         mCubeNormals = bufferBoilerplate( normals(CubeData.positionArray, mPositionDataSize) );
+        mCubeTextureCoordinates = bufferBoilerplate(CubeData.textureCoordinatesArray );
     }
 
     @Override
     public void onSurfaceCreated(GL10 glUnused, EGLConfig config)
     {
-        // Set the background clear color to gray.
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.1f);
 
         // Use culling to remove back faces.
         GLES20.glEnable(GLES20.GL_CULL_FACE);
-
         // Enable depth testing
         GLES20.glEnable(GLES20.GL_DEPTH_TEST);
 
@@ -141,19 +187,17 @@ public class BasicRenderer implements Renderer{
         final float upZ = 0.0f;
 
         // Set the view matrix. This matrix can be said to represent the camera position.
-        // NOTE: In OpenGL 1, a ModelView matrix is used, which is a combination of a model and
-        // view matrix. In OpenGL 2, we can keep track of these matrices separately if we choose.
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
         final int vertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, vertexShader);
         final int fragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, fragmentShader);
-
-        mProgramHandle = programBoilerplate(vertexShaderHandle, fragmentShaderHandle, new String[] { "a_Position", "a_Color", "a_Normal"});
+        mProgramHandle = programBoilerplate(vertexShaderHandle, fragmentShaderHandle, new String[] { "a_Position", "a_Color", "a_Normal", "a_TexCoordinate"});
 
         final int pointVertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, pointVertexShader);
         final int pointFragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, pointFragmentShader);
-
         mPointProgramHandle = programBoilerplate(pointVertexShaderHandle, pointFragmentShaderHandle, new String[] { "a_Position" });
+        
+        mTextureDataHandle = loadTexture("stone.png", mActivityContext);
     }
 
     @Override
@@ -191,6 +235,15 @@ public class BasicRenderer implements Renderer{
         mColorHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Color");
         mNormalHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Normal"); 
         
+        mTextureUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_Texture");
+        mTextureCoordinateHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_TexCoordinate");     
+        // Set the active texture unit to texture unit 0.
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        // Bind the texture to this unit.
+        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureDataHandle);
+        // Tell the texture uniform sampler to use this texture in the shader by binding to texture unit 0.
+        GLES20.glUniform1i(mTextureUniformHandle, 0);
+        
         // Calculate position of the light. Rotate and then push into the distance.
         Matrix.setIdentityM(mLightModelMatrix, 0);
         Matrix.translateM(mLightModelMatrix, 0, 0.0f, 0.0f, -5.0f);      
@@ -204,26 +257,26 @@ public class BasicRenderer implements Renderer{
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 4.0f, 0.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 0.0f, 0.0f);        
-        drawVertices(mCubePositions, mCubeColors, mCubeNormals);
+        drawVertices(mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, -4.0f, 0.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);        
-        drawVertices(mCubePositions, mCubeColors, mCubeNormals);
+        drawVertices(mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 4.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 0.0f, 1.0f);        
-        drawVertices(mCubePositions, mCubeColors, mCubeNormals);
+        drawVertices(mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, -4.0f, -7.0f);        
-        drawVertices(mCubePositions, mCubeColors, mCubeNormals);
+        drawVertices(mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -5.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 1.0f, 0.0f);        
-        drawVertices(mCubePositions, mCubeColors, mCubeNormals);
+        drawVertices(mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -5.0f);      
@@ -233,7 +286,7 @@ public class BasicRenderer implements Renderer{
     }
 
 
-    private void drawVertices(final FloatBuffer positionsBuffer, final FloatBuffer colorsBuffer, final FloatBuffer normalsBuffer)
+    private void drawVertices(final FloatBuffer positionsBuffer, final FloatBuffer colorsBuffer, final FloatBuffer normalsBuffer, final FloatBuffer textureCoordinatesBuffer)
     {	
         GLES20.glUseProgram(mProgramHandle);
 
@@ -248,10 +301,14 @@ public class BasicRenderer implements Renderer{
         GLES20.glEnableVertexAttribArray(mColorHandle);
         
         // Pass in the normal information
-        colorsBuffer.position(0);
+        normalsBuffer.position(0);
         GLES20.glVertexAttribPointer(mNormalHandle, mNormalDataSize, GLES20.GL_FLOAT, false, 0, normalsBuffer);        
         GLES20.glEnableVertexAttribArray(mNormalHandle);
-                
+        
+        textureCoordinatesBuffer.position(0);
+        GLES20.glVertexAttribPointer(mTextureCoordinateHandle, mTextureCoordinateDataSize, GLES20.GL_FLOAT, false, 0, textureCoordinatesBuffer);        
+        GLES20.glEnableVertexAttribArray(mTextureCoordinateHandle);
+        
 		// This multiplies the view matrix by the model matrix, and stores the result in the MVP matrix
         // (which currently contains model * view).
         Matrix.multiplyMM(mMVPMatrix, 0, mViewMatrix, 0, mModelMatrix, 0);
@@ -299,18 +356,21 @@ public class BasicRenderer implements Renderer{
             + "attribute vec4 a_Position;     \n"		// Per-vertex position information we will pass in.
             + "attribute vec4 a_Color;        \n"		// Per-vertex color information we will pass in.
             + "attribute vec3 a_Normal;       \n"		// Per-vertex normal information we will pass in.
-
+            + "attribute vec2 a_TexCoordinate;\n"       // Per-vertex texture coordinate information we will pass in.
+            
             + "varying vec4 v_Color;          \n"		// This will be passed into the fragment shader.
             + "varying vec3 v_Normal;         \n"
             + "varying vec3 v_Position;       \n"
-            + "varying float v_Distance;       \n"
+            + "varying float v_Distance;      \n"
+            + "varying vec2 v_TexCoordinate;  \n"
             
             + "void main()                    \n" 	// The entry point for our vertex shader.
             + "{                              \n"		
             + "   v_Position = vec3(u_MVMatrix * a_Position);            \n"
             + "   v_Normal = vec3(u_MVMatrix * vec4(a_Normal, 0.0));     \n"
             + "   v_Distance = length(u_LightPos - v_Position);     \n"
-            + "   v_Color = a_Color;                                     \n"		
+            + "   v_Color = a_Color;                                     \n"
+            + "   v_TexCoordinate = a_TexCoordinate;"
             + "   gl_Position = u_MVPMatrix * a_Position;                \n"     
             + "}                                                         \n"; 
 
@@ -318,18 +378,21 @@ public class BasicRenderer implements Renderer{
             "precision mediump float;       \n"
             
             + "uniform vec3 u_LightPos;       \n"	    // The position of the light in eye space.
+            + "uniform sampler2D u_Texture;   \n"
             
             + "varying vec4 v_Color;          \n"
             + "varying vec3 v_Normal;         \n"
             + "varying vec3 v_Position;       \n"
-            + "varying float v_Distance;       \n"
+            + "varying float v_Distance;      \n"
+            + "varying vec2 v_TexCoordinate;  \n"
             
             + "void main()                    \n"     // The entry point for our fragment shader.
             + "{                              \n"
             + "   vec3 lightVector = normalize(u_LightPos - v_Position);    \n"
             + "   float diffuse = max(dot(v_Normal, lightVector), 0.1);     \n"
-            + "   diffuse = diffuse * (1.0 / (1.0 + (0.25 * v_Distance * v_Distance)));\n"
-            + "   gl_FragColor = v_Color * diffuse;     \n"
+            + "   diffuse = diffuse * (1.0 / (1.0 + (0.1 * v_Distance * v_Distance)));\n"
+            + "   diffuse = diffuse + 0.3; \n" //some ambient lightning
+            + "   gl_FragColor = v_Color * diffuse * texture2D(u_Texture, v_TexCoordinate);     \n"
             + "}                              \n";
 
     // Define a simple shader program for our point.
