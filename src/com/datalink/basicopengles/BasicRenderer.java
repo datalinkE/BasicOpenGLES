@@ -351,7 +351,7 @@ public class BasicRenderer implements Renderer{
     final String vertexShader =
               "uniform mat4 u_MVPMatrix;      \n"		// A constant representing the combined model/view/projection matrix.
             + "uniform mat4 u_MVMatrix;       \n"		// A constant representing the combined model/view matrix.
-            + "uniform vec3 u_LightPos;       \n"	    // The position of the light in eye space.
+            + "uniform mediump vec3 u_LightPos;       \n"	    // The position of the light in eye space.
             
             + "attribute vec4 a_Position;     \n"		// Per-vertex position information we will pass in.
             + "attribute vec4 a_Color;        \n"		// Per-vertex color information we will pass in.
@@ -376,7 +376,6 @@ public class BasicRenderer implements Renderer{
 
     final String fragmentShader =
             "precision mediump float;       \n"
-            
             + "uniform vec3 u_LightPos;       \n"	    // The position of the light in eye space.
             + "uniform sampler2D u_Texture;   \n"
             
