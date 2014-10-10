@@ -1,6 +1,5 @@
 package com.datalink.basicopengles;
 
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -9,10 +8,7 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
-import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import android.opengl.GLSurfaceView.Renderer;
 import android.os.SystemClock;
@@ -59,7 +55,12 @@ public class BasicRenderer implements Renderer{
     private final float[] mLightPosInWorldSpace = new float[4];
     private final float[] mLightPosInEyeSpace = new float[4];
 
+    private final String mVertexShader;
+    private final String mFragmentShader;
     private int mProgramHandle;
+    
+    private final String mPointVertexShader;
+    private final String mPointFragmentShader;
     private int mPointProgramHandle;
 
     float[] crossProduct(float[] fst, float[] sec, boolean normalize)
@@ -103,46 +104,7 @@ public class BasicRenderer implements Renderer{
         }
         return result;
     }
-    
-    public static int loadTexture(final String assetPath, Context context)
-    {
-        final int[] textureHandle = new int[1];
-     
-        GLES20.glGenTextures(1, textureHandle, 0);
-     
-        if (textureHandle[0] != 0)
-        {
-            try
-            {
-                InputStream is = context.getAssets().open(assetPath);
-                final Bitmap bitmap = BitmapFactory.decodeStream(is);
-         
-                // Bind to the texture in OpenGL
-                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureHandle[0]);
-         
-                // Set filtering
-                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
-         
-                // Load the bitmap into the bound texture.
-                GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
-         
-                // Recycle the bitmap, since its data has been loaded into OpenGL.
-                bitmap.recycle();
-            }
-            catch (Exception e)
-            {
-                throw new RuntimeException("Error loading texture file " + assetPath);
-            }
-        }
-     
-        if (textureHandle[0] == 0)
-        {
-            throw new RuntimeException("Error loading texture.");
-        }
-     
-        return textureHandle[0];
-    }
+
 
     FloatBuffer bufferBoilerplate(final float[] values)
     {
@@ -155,10 +117,16 @@ public class BasicRenderer implements Renderer{
     public BasicRenderer(final Context activityContext)
     {
         mActivityContext = activityContext;
+        
+        mVertexShader = AssetHelpers.loadText("BasicShader.vertex", mActivityContext);
+        mFragmentShader = AssetHelpers.loadText("BasicShader.fragment", mActivityContext);
         mCubePositions = bufferBoilerplate(CubeData.positionArray);	
         mCubeColors = bufferBoilerplate(CubeData.collorArray);
         mCubeNormals = bufferBoilerplate( normals(CubeData.positionArray, mPositionDataSize) );
         mCubeTextureCoordinates = bufferBoilerplate(CubeData.textureCoordinatesArray );
+        
+        mPointVertexShader = AssetHelpers.loadText("PointShader.vertex", mActivityContext);
+        mPointFragmentShader = AssetHelpers.loadText("PointShader.fragment", mActivityContext);
     }
 
     @Override
@@ -189,15 +157,15 @@ public class BasicRenderer implements Renderer{
         // Set the view matrix. This matrix can be said to represent the camera position.
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
-        final int vertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, vertexShader);
-        final int fragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, fragmentShader);
+        final int vertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, mVertexShader);
+        final int fragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, mFragmentShader);
         mProgramHandle = programBoilerplate(vertexShaderHandle, fragmentShaderHandle, new String[] { "a_Position", "a_Color", "a_Normal", "a_TexCoordinate"});
 
-        final int pointVertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, pointVertexShader);
-        final int pointFragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, pointFragmentShader);
+        final int pointVertexShaderHandle = shaderBoilerplate(GLES20.GL_VERTEX_SHADER, mPointVertexShader);
+        final int pointFragmentShaderHandle = shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, mPointFragmentShader);
         mPointProgramHandle = programBoilerplate(pointVertexShaderHandle, pointFragmentShaderHandle, new String[] { "a_Position" });
         
-        mTextureDataHandle = loadTexture("stone.png", mActivityContext);
+        mTextureDataHandle = AssetHelpers.loadTexture("stone.png", mActivityContext);
     }
 
     @Override
@@ -346,72 +314,6 @@ public class BasicRenderer implements Renderer{
         // Draw the point.
         GLES20.glDrawArrays(GLES20.GL_POINTS, 0, 1);
     }
-
-
-    final String vertexShader =
-              "uniform mat4 u_MVPMatrix;      \n"		// A constant representing the combined model/view/projection matrix.
-            + "uniform mat4 u_MVMatrix;       \n"		// A constant representing the combined model/view matrix.
-            + "uniform mediump vec3 u_LightPos;       \n"	    // The position of the light in eye space.
-            
-            + "attribute vec4 a_Position;     \n"		// Per-vertex position information we will pass in.
-            + "attribute vec4 a_Color;        \n"		// Per-vertex color information we will pass in.
-            + "attribute vec3 a_Normal;       \n"		// Per-vertex normal information we will pass in.
-            + "attribute vec2 a_TexCoordinate;\n"       // Per-vertex texture coordinate information we will pass in.
-            
-            + "varying vec4 v_Color;          \n"		// This will be passed into the fragment shader.
-            + "varying vec3 v_Normal;         \n"
-            + "varying vec3 v_Position;       \n"
-            + "varying float v_Distance;      \n"
-            + "varying vec2 v_TexCoordinate;  \n"
-            
-            + "void main()                    \n" 	// The entry point for our vertex shader.
-            + "{                              \n"		
-            + "   v_Position = vec3(u_MVMatrix * a_Position);            \n"
-            + "   v_Normal = vec3(u_MVMatrix * vec4(a_Normal, 0.0));     \n"
-            + "   v_Distance = length(u_LightPos - v_Position);     \n"
-            + "   v_Color = a_Color;                                     \n"
-            + "   v_TexCoordinate = a_TexCoordinate;"
-            + "   gl_Position = u_MVPMatrix * a_Position;                \n"     
-            + "}                                                         \n"; 
-
-    final String fragmentShader =
-            "precision mediump float;       \n"
-            + "uniform vec3 u_LightPos;       \n"	    // The position of the light in eye space.
-            + "uniform sampler2D u_Texture;   \n"
-            
-            + "varying vec4 v_Color;          \n"
-            + "varying vec3 v_Normal;         \n"
-            + "varying vec3 v_Position;       \n"
-            + "varying float v_Distance;      \n"
-            + "varying vec2 v_TexCoordinate;  \n"
-            
-            + "void main()                    \n"     // The entry point for our fragment shader.
-            + "{                              \n"
-            + "   vec3 lightVector = normalize(u_LightPos - v_Position);    \n"
-            + "   float diffuse = max(dot(v_Normal, lightVector), 0.1);     \n"
-            + "   diffuse = diffuse * (1.0 / (1.0 + (0.1 * v_Distance * v_Distance)));\n"
-            + "   diffuse = diffuse + 0.3; \n" //some ambient lightning
-            + "   gl_FragColor = v_Color * diffuse * texture2D(u_Texture, v_TexCoordinate);     \n"
-            + "}                              \n";
-
-    // Define a simple shader program for our point.
-    final String pointVertexShader =
-            "uniform mat4 u_MVPMatrix;      \n"		
-            +	"attribute vec4 a_Position;     \n"		
-            + "void main()                    \n"
-            + "{                              \n"
-            + "   gl_Position = u_MVPMatrix   \n"
-            + "               * a_Position;   \n"
-            + "   gl_PointSize = 3.0;         \n"
-            + "}                              \n";
-
-    final String pointFragmentShader = 
-            "precision mediump float;       \n"					          
-            + "void main()                    \n"
-            + "{                              \n"
-            + "   gl_FragColor = vec4(1.0,    \n" 
-            + "   1.0, 1.0, 1.0);             \n"
-            + "}                              \n";
 
     int shaderBoilerplate(int shaderType, String shaderProgram)
     {
