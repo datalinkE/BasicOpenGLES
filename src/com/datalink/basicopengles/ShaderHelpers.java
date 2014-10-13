@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
+import android.opengl.GLES20;
 import android.opengl.Matrix;
 
 public class ShaderHelpers
@@ -56,12 +57,79 @@ public class ShaderHelpers
         return result;
     }
 
-
     public static FloatBuffer bufferBoilerplate(final float[] values)
     {
         FloatBuffer result = ByteBuffer.allocateDirect(values.length * mBytesPerFloat)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
         result.put(values).position(0);
         return result;
+    }
+    
+    public static int shaderBoilerplate(int shaderType, String shaderProgram)
+    {
+        int shaderHandle = GLES20.glCreateShader(shaderType);
+        String why = "Error creating shader. ";
+
+        if (shaderHandle != 0)
+        {
+            GLES20.glShaderSource(shaderHandle, shaderProgram);
+            GLES20.glCompileShader(shaderHandle);
+
+            // Get the compilation status.
+            // If the compilation failed, delete the shader.
+            final int[] compileStatus = new int[1];
+            GLES20.glGetShaderiv(shaderHandle, GLES20.GL_COMPILE_STATUS, compileStatus, 0);
+            if (compileStatus[0] == 0)
+            {
+                why += GLES20.glGetShaderInfoLog(shaderHandle);
+                GLES20.glDeleteShader(shaderHandle);
+                throw new RuntimeException(why);
+            }
+        }
+        else
+        {
+            throw new RuntimeException(why);
+        }
+
+        return shaderHandle;
+    }
+    
+    public static int programBoilerplate(final int vertexShaderHandle, final int fragmentShaderHandle, final String[] attributes)
+    {
+        int programHandle = GLES20.glCreateProgram();
+        String why = "Error creating shader program. ";
+
+        if (programHandle != 0)
+        {
+            GLES20.glAttachShader(programHandle, vertexShaderHandle);
+            GLES20.glAttachShader(programHandle, fragmentShaderHandle);
+
+            if (attributes != null)
+            {
+                for (int i = 0; i < attributes.length; i++)
+                {
+                    GLES20.glBindAttribLocation(programHandle, i, attributes[i]);
+                }						
+            }
+
+            GLES20.glLinkProgram(programHandle);
+
+            // Get the link status.
+            // If the link failed, delete the program.
+            final int[] linkStatus = new int[1];
+            GLES20.glGetProgramiv(programHandle, GLES20.GL_LINK_STATUS, linkStatus, 0);
+            if (linkStatus[0] == 0)
+            {
+                why += GLES20.glGetProgramInfoLog(programHandle);
+                GLES20.glDeleteProgram(programHandle);
+                throw new RuntimeException(why);          
+            }
+        }
+        else
+        {
+            throw new RuntimeException(why);
+        }
+
+        return programHandle;
     }
 }

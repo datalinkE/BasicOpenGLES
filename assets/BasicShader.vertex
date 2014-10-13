@@ -2,6 +2,7 @@
 uniform mat4 u_MVPMatrix;   // Combined model/view/projection matrix.
 uniform mat4 u_MVMatrix;    // Combined model/view matrix.
 uniform mediump vec3 u_LightPos;    // Position of the light in eye space.
+//TODO: find out why eye space
 
 // Buffer input. Per-vertex values.
 attribute vec4 a_Position;

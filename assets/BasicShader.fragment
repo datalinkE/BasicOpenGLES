@@ -16,6 +16,6 @@ void main()
     vec3 lightVector = normalize(u_LightPos - v_Position);
     float diffuse = max(dot(v_Normal, lightVector), 0.1);
     diffuse = diffuse * (1.0 / (1.0 + (0.1 * v_Distance * v_Distance)));
-    diffuse = diffuse + 0.3;    //some ambient lightning
+    diffuse = diffuse + 0.1;    //some ambient lightning
     gl_FragColor = v_Color * diffuse * texture2D(u_Texture, v_TexCoordinate);
 }
