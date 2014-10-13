@@ -1,7 +1,5 @@
 package com.datalink.basicopengles;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
 import javax.microedition.khronos.egl.EGLConfig;
@@ -17,7 +15,6 @@ public class BasicRenderer implements Renderer{
 
     private final Context mActivityContext;
     
-    private final int mBytesPerFloat = 4;
 
     private float[] mViewMatrix = new float[16];
     private float[] mProjectionMatrix = new float[16];
@@ -39,13 +36,10 @@ public class BasicRenderer implements Renderer{
     /** This will be used to pass in model texture coordinate information. */
     private int mTextureCoordinateHandle; 
     /** Size of the texture coordinate data in elements. */
-    private final int mTextureCoordinateDataSize = 2; 
     /** This is a handle to our texture data. */
     private int mTextureDataHandle;
 
-    private final int mPositionDataSize = 3;
-    private final int mColorDataSize = 4;
-    private final int mNormalDataSize = 3;
+
 
     private final FloatBuffer mCubePositions;
     private final FloatBuffer mCubeColors;
@@ -63,56 +57,6 @@ public class BasicRenderer implements Renderer{
     private final String mPointFragmentShader;
     private int mPointProgramHandle;
 
-    float[] crossProduct(float[] fst, float[] sec, boolean normalize)
-    {
-        float new0 = -fst[1]*sec[2] + fst[2]*sec[1];
-        float new1 = -fst[2]*sec[0] + fst[0]*sec[2];
-        float new2 = fst[1]*sec[0] - fst[0]*sec[1];
-        if( normalize )
-        {
-            float length = Matrix.length(new0, new1, new2);
-            float[] result = { new0/length, new1/length, new2/length};
-            return result;
-        }
-
-        float[] result = { new0, new1, new2 };
-        return result;
-    }
-
-    float[] normals(float[] vertices, int strideSize)
-    {
-        int verticesInGroup = 3;
-
-        int len = vertices.length / (strideSize*verticesInGroup);
-        int size = len*verticesInGroup*mPositionDataSize;
-        float[] result = new float[size];
-        float[] fst = new float[mPositionDataSize];
-        float[] sec = new float[mPositionDataSize];
-        for (int i = 0; i < size; i+=strideSize*verticesInGroup)
-        {
-            for (int j = 0; j < mPositionDataSize; j++)
-            {
-                fst[j] = vertices[i+j] - vertices[i+strideSize+j];
-                sec[j] = vertices[i+strideSize*2+j] - vertices[i+strideSize+j];
-            }
-
-            float[] cross = crossProduct(fst, sec, true);
-            for (int k = 0; k < verticesInGroup; k++)
-            {
-                System.arraycopy(cross, 0, result, i+k*strideSize,  mPositionDataSize);
-            }
-        }
-        return result;
-    }
-
-
-    FloatBuffer bufferBoilerplate(final float[] values)
-    {
-        FloatBuffer result = ByteBuffer.allocateDirect(values.length * mBytesPerFloat)
-                .order(ByteOrder.nativeOrder()).asFloatBuffer();
-        result.put(values).position(0);
-        return result;
-    }
 
     public BasicRenderer(final Context activityContext)
     {
@@ -120,10 +64,10 @@ public class BasicRenderer implements Renderer{
         
         mVertexShader = AssetHelpers.loadText("BasicShader.vertex", mActivityContext);
         mFragmentShader = AssetHelpers.loadText("BasicShader.fragment", mActivityContext);
-        mCubePositions = bufferBoilerplate(CubeData.positionArray);	
-        mCubeColors = bufferBoilerplate(CubeData.collorArray);
-        mCubeNormals = bufferBoilerplate( normals(CubeData.positionArray, mPositionDataSize) );
-        mCubeTextureCoordinates = bufferBoilerplate(CubeData.textureCoordinatesArray );
+        mCubePositions = ShaderHelpers.bufferBoilerplate(CubeData.positionArray);	
+        mCubeColors = ShaderHelpers.bufferBoilerplate(CubeData.collorArray);
+        mCubeNormals = ShaderHelpers.bufferBoilerplate( ShaderHelpers.normals(CubeData.positionArray, ShaderHelpers.mPositionDataSize) );
+        mCubeTextureCoordinates = ShaderHelpers.bufferBoilerplate(CubeData.textureCoordinatesArray );
         
         mPointVertexShader = AssetHelpers.loadText("PointShader.vertex", mActivityContext);
         mPointFragmentShader = AssetHelpers.loadText("PointShader.fragment", mActivityContext);
@@ -260,21 +204,21 @@ public class BasicRenderer implements Renderer{
 
         // Pass in the position information
         positionsBuffer.position(0);		
-        GLES20.glVertexAttribPointer(mPositionHandle, mPositionDataSize, GLES20.GL_FLOAT, false, 0, positionsBuffer);        
+        GLES20.glVertexAttribPointer(mPositionHandle, ShaderHelpers.mPositionDataSize, GLES20.GL_FLOAT, false, 0, positionsBuffer);        
         GLES20.glEnableVertexAttribArray(mPositionHandle);        
 
         // Pass in the color information
         colorsBuffer.position(0);
-        GLES20.glVertexAttribPointer(mColorHandle, mColorDataSize, GLES20.GL_FLOAT, false, 0, colorsBuffer);        
+        GLES20.glVertexAttribPointer(mColorHandle, ShaderHelpers.mColorDataSize, GLES20.GL_FLOAT, false, 0, colorsBuffer);        
         GLES20.glEnableVertexAttribArray(mColorHandle);
         
         // Pass in the normal information
         normalsBuffer.position(0);
-        GLES20.glVertexAttribPointer(mNormalHandle, mNormalDataSize, GLES20.GL_FLOAT, false, 0, normalsBuffer);        
+        GLES20.glVertexAttribPointer(mNormalHandle, ShaderHelpers.mNormalDataSize, GLES20.GL_FLOAT, false, 0, normalsBuffer);        
         GLES20.glEnableVertexAttribArray(mNormalHandle);
         
         textureCoordinatesBuffer.position(0);
-        GLES20.glVertexAttribPointer(mTextureCoordinateHandle, mTextureCoordinateDataSize, GLES20.GL_FLOAT, false, 0, textureCoordinatesBuffer);        
+        GLES20.glVertexAttribPointer(mTextureCoordinateHandle, ShaderHelpers.mTextureCoordinateDataSize, GLES20.GL_FLOAT, false, 0, textureCoordinatesBuffer);        
         GLES20.glEnableVertexAttribArray(mTextureCoordinateHandle);
         
 		// This multiplies the view matrix by the model matrix, and stores the result in the MVP matrix
@@ -289,7 +233,7 @@ public class BasicRenderer implements Renderer{
         
         GLES20.glUniform3f(mLightPositionHandle, mLightPosInEyeSpace[0], mLightPosInEyeSpace[1], mLightPosInEyeSpace[2]);
             
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, positionsBuffer.capacity() / mPositionDataSize);                               
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, positionsBuffer.capacity() / ShaderHelpers.mPositionDataSize);                               
     }
 
 

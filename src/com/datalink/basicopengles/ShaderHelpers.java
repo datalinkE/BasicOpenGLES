@@ -1,11 +1,20 @@
 package com.datalink.basicopengles;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+
 import android.opengl.Matrix;
 
 public class ShaderHelpers
 {
+    public static final int mBytesPerFloat = 4;
+    public static final int mPositionDataSize = 3;
+    public static final int mColorDataSize = 4;
+    public static final int mNormalDataSize = 3;
+    public static final int mTextureCoordinateDataSize = 2; 
 
-    float[] crossProduct(float[] fst, float[] sec, boolean normalize)
+    public static float[] crossProduct(float[] fst, float[] sec, boolean normalize)
     {
         float new0 = -fst[1]*sec[2] + fst[2]*sec[1];
         float new1 = -fst[2]*sec[0] + fst[0]*sec[2];
@@ -21,7 +30,7 @@ public class ShaderHelpers
         return result;
     }
 
-    float[] normals(float[] vertices, int strideSize)
+    public static float[] normals(float[] vertices, int strideSize)
     {
         int verticesInGroup = 3;
 
@@ -48,7 +57,7 @@ public class ShaderHelpers
     }
 
 
-    FloatBuffer bufferBoilerplate(final float[] values)
+    public static FloatBuffer bufferBoilerplate(final float[] values)
     {
         FloatBuffer result = ByteBuffer.allocateDirect(values.length * mBytesPerFloat)
                 .order(ByteOrder.nativeOrder()).asFloatBuffer();
