@@ -30,7 +30,9 @@ public class MainActivity extends Activity {
             // Request an OpenGL ES 2.0 compatible context.
             mGLSurfaceView.setEGLContextClientVersion(2);
             
-            mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
+            //TODO:odd effect in osx emulator, but necessary for windows
+            //mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 0, 0);
+            
             // Set the renderer to our demo renderer, defined below.
             mGLSurfaceView.setRenderer(new BasicRenderer(this));
         }

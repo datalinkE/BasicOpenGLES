@@ -18,9 +18,7 @@ public class BasicRenderer implements Renderer{
     private float[] mViewMatrix = new float[16];
     private float[] mProjectionMatrix = new float[16];
     private float[] mModelMatrix = new float[16];
-    private float[] mMVPMatrix = new float[16];
     private float[] mLightModelMatrix = new float[16];
-
 
     /** Store our model data in a float buffer. */
     private final FloatBuffer mCubeTextureCoordinates;
@@ -33,12 +31,9 @@ public class BasicRenderer implements Renderer{
     private final float[] mLightPosInModelSpace = {0.0f, 0.0f, 0.0f, 1.0f};
     private final float[] mLightPosInWorldSpace = new float[4];
     private final float[] mLightPosInEyeSpace = new float[4];
-    
-    private final String mPointVertexShader;
-    private final String mPointFragmentShader;
-    private int mPointProgramHandle;
 
     private TexLightShader mTexLightShader;
+    private PointShader mPointShader;
     
     public BasicRenderer(final Context activityContext)
     {
@@ -48,9 +43,6 @@ public class BasicRenderer implements Renderer{
         mCubeColors = ShaderHelpers.bufferBoilerplate(CubeData.collorArray);
         mCubeNormals = ShaderHelpers.bufferBoilerplate( ShaderHelpers.normals(CubeData.positionArray, ShaderHelpers.mPositionDataSize) );
         mCubeTextureCoordinates = ShaderHelpers.bufferBoilerplate(CubeData.textureCoordinatesArray );
-        
-        mPointVertexShader = AssetHelpers.loadText("PointShader.vertex", mActivityContext);
-        mPointFragmentShader = AssetHelpers.loadText("PointShader.fragment", mActivityContext);
     }
 
     @Override
@@ -81,12 +73,9 @@ public class BasicRenderer implements Renderer{
         // Set the view matrix. This matrix can be said to represent the camera position.
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
-        final int pointVertexShaderHandle = ShaderHelpers.shaderBoilerplate(GLES20.GL_VERTEX_SHADER, mPointVertexShader);
-        final int pointFragmentShaderHandle = ShaderHelpers.shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, mPointFragmentShader);
-        mPointProgramHandle = ShaderHelpers.programBoilerplate(pointVertexShaderHandle, pointFragmentShaderHandle, new String[] { "a_Position" });
-        
         mTextureDataHandle = AssetHelpers.loadTexture("stone.png", mActivityContext);
         TexLightShader.init(mActivityContext);
+        PointShader.init(mActivityContext);
         
     }
 
@@ -110,6 +99,7 @@ public class BasicRenderer implements Renderer{
         
         //TODO: find out why eye space
         mTexLightShader = new TexLightShader(mViewMatrix, mProjectionMatrix, mTextureDataHandle, mLightPosInEyeSpace);
+        mPointShader = new PointShader(mViewMatrix, mProjectionMatrix);
     }
 
     @Override
@@ -158,28 +148,7 @@ public class BasicRenderer implements Renderer{
         Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -5.0f);      
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, 2.0f);
-        drawLight();
-    }
-
-    private void drawLight()
-    {
-        GLES20.glUseProgram(mPointProgramHandle);
-
-        final int pointMVPMatrixHandle = GLES20.glGetUniformLocation(mPointProgramHandle, "u_MVPMatrix");
-        final int pointPositionHandle = GLES20.glGetAttribLocation(mPointProgramHandle, "a_Position");
-
-        // Pass in the position.
-        GLES20.glVertexAttrib3f(pointPositionHandle, mLightPosInModelSpace[0], mLightPosInModelSpace[1], mLightPosInModelSpace[2]);
-
-        // Since we are not using a buffer object, disable vertex arrays for this attribute.
-        GLES20.glDisableVertexAttribArray(pointPositionHandle);  
-
-        // Pass in the transformation matrix.
-        Matrix.multiplyMM(mMVPMatrix, 0, mViewMatrix, 0, mModelMatrix, 0);
-        Matrix.multiplyMM(mMVPMatrix, 0, mProjectionMatrix, 0, mMVPMatrix, 0);
-        GLES20.glUniformMatrix4fv(pointMVPMatrixHandle, 1, false, mMVPMatrix, 0);
-
-        // Draw the point.
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, 1);
+        
+        mPointShader.drawPoint(mLightModelMatrix);
     }
 }
