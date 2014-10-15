@@ -1,7 +1,5 @@
 package com.datalink.basicopengles;
 
-import java.nio.FloatBuffer;
-
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -62,7 +60,7 @@ public TexLightShader(float[] viewMatrix, float[] projectionMatrix, int textureD
 	mLightPosInEyeSpace = lightPosInEyeSpace;
 }
 
-public void drawVertices(float[] modelMatrix, final FloatBuffer positionsBuffer, final FloatBuffer colorsBuffer, final FloatBuffer normalsBuffer, final FloatBuffer textureCoordinatesBuffer)
+public void draw(float[] modelMatrix, Mesh mesh)
     {	
         GLES20.glUseProgram(mProgramHandle);
         
@@ -74,22 +72,22 @@ public void drawVertices(float[] modelMatrix, final FloatBuffer positionsBuffer,
         GLES20.glUniform1i(mTextureUniformHandle, 0);
 
         // Pass in the position information
-        positionsBuffer.position(0);		
-        GLES20.glVertexAttribPointer(mPositionHandle, ShaderHelpers.mPositionDataSize, GLES20.GL_FLOAT, false, 0, positionsBuffer);        
+        mesh.positions().position(0);		
+        GLES20.glVertexAttribPointer(mPositionHandle, ShaderHelpers.mPositionDataSize, GLES20.GL_FLOAT, false, 0, mesh.positions());        
         GLES20.glEnableVertexAttribArray(mPositionHandle);        
 
         // Pass in the color information
-        colorsBuffer.position(0);
-        GLES20.glVertexAttribPointer(mColorHandle, ShaderHelpers.mColorDataSize, GLES20.GL_FLOAT, false, 0, colorsBuffer);        
+        mesh.colors().position(0);
+        GLES20.glVertexAttribPointer(mColorHandle, ShaderHelpers.mColorDataSize, GLES20.GL_FLOAT, false, 0, mesh.colors());        
         GLES20.glEnableVertexAttribArray(mColorHandle);
         
         // Pass in the normal information
-        normalsBuffer.position(0);
-        GLES20.glVertexAttribPointer(mNormalHandle, ShaderHelpers.mNormalDataSize, GLES20.GL_FLOAT, false, 0, normalsBuffer);        
+        mesh.normals().position(0);
+        GLES20.glVertexAttribPointer(mNormalHandle, ShaderHelpers.mNormalDataSize, GLES20.GL_FLOAT, false, 0, mesh.normals());        
         GLES20.glEnableVertexAttribArray(mNormalHandle);
         
-        textureCoordinatesBuffer.position(0);
-        GLES20.glVertexAttribPointer(mTextureCoordinateHandle, ShaderHelpers.mTextureCoordinateDataSize, GLES20.GL_FLOAT, false, 0, textureCoordinatesBuffer);        
+        mesh.textureCoordinates().position(0);
+        GLES20.glVertexAttribPointer(mTextureCoordinateHandle, ShaderHelpers.mTextureCoordinateDataSize, GLES20.GL_FLOAT, false, 0, mesh.textureCoordinates());        
         GLES20.glEnableVertexAttribArray(mTextureCoordinateHandle);
         
 		// This multiplies the view matrix by the model matrix, and stores the result in the MVP matrix
@@ -104,6 +102,6 @@ public void drawVertices(float[] modelMatrix, final FloatBuffer positionsBuffer,
         
         GLES20.glUniform3f(mLightPositionHandle, mLightPosInEyeSpace[0], mLightPosInEyeSpace[1], mLightPosInEyeSpace[2]);
             
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, positionsBuffer.capacity() / ShaderHelpers.mPositionDataSize);                               
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, mesh.positions().capacity() / ShaderHelpers.mPositionDataSize);                               
     }
 }

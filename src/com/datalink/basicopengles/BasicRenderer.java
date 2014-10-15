@@ -1,7 +1,5 @@
 package com.datalink.basicopengles;
 
-import java.nio.FloatBuffer;
-
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
@@ -20,13 +18,7 @@ public class BasicRenderer implements Renderer{
     private float[] mModelMatrix = new float[16];
     private float[] mLightModelMatrix = new float[16];
 
-    /** Store our model data in a float buffer. */
-    private final FloatBuffer mCubeTextureCoordinates;
     private int mTextureDataHandle;
-
-    private final FloatBuffer mCubePositions;
-    private final FloatBuffer mCubeColors;
-    private final FloatBuffer mCubeNormals;
 
     private final float[] mLightPosInModelSpace = {0.0f, 0.0f, 0.0f, 1.0f};
     private final float[] mLightPosInWorldSpace = new float[4];
@@ -38,11 +30,6 @@ public class BasicRenderer implements Renderer{
     public BasicRenderer(final Context activityContext)
     {
         mActivityContext = activityContext;
-        
-        mCubePositions = ShaderHelpers.bufferBoilerplate(CubeData.positionArray);	
-        mCubeColors = ShaderHelpers.bufferBoilerplate(CubeData.collorArray);
-        mCubeNormals = ShaderHelpers.bufferBoilerplate( ShaderHelpers.normals(CubeData.positionArray, ShaderHelpers.mPositionDataSize) );
-        mCubeTextureCoordinates = ShaderHelpers.bufferBoilerplate(CubeData.textureCoordinatesArray );
     }
 
     @Override
@@ -75,7 +62,6 @@ public class BasicRenderer implements Renderer{
 
         mTextureDataHandle = AssetHelpers.loadTexture("stone.png", mActivityContext);
         TexLightShader.init(mActivityContext);
-        PointShader.init(mActivityContext);
         
     }
 
@@ -99,7 +85,7 @@ public class BasicRenderer implements Renderer{
         
         //TODO: find out why eye space
         mTexLightShader = new TexLightShader(mViewMatrix, mProjectionMatrix, mTextureDataHandle, mLightPosInEyeSpace);
-        mPointShader = new PointShader(mViewMatrix, mProjectionMatrix);
+        mPointShader = new PointShader(mViewMatrix, mProjectionMatrix, mActivityContext);
     }
 
     @Override
@@ -119,36 +105,33 @@ public class BasicRenderer implements Renderer{
         Matrix.multiplyMV(mLightPosInWorldSpace, 0, mLightModelMatrix, 0, mLightPosInModelSpace, 0);
         Matrix.multiplyMV(mLightPosInEyeSpace, 0, mViewMatrix, 0, mLightPosInWorldSpace, 0);
 
+        Mesh cube = new CubeMesh();
+        
         // Draw some cubes.        
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 4.0f, 0.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 0.0f, 0.0f);        
-        mTexLightShader.drawVertices(mModelMatrix, mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
+        mTexLightShader.draw(mModelMatrix, cube);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, -4.0f, 0.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);        
-        mTexLightShader.drawVertices(mModelMatrix, mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
+        mTexLightShader.draw(mModelMatrix, cube);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 4.0f, -7.0f);
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 0.0f, 1.0f);        
-        mTexLightShader.drawVertices(mModelMatrix, mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
+        mTexLightShader.draw(mModelMatrix, cube);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, -4.0f, -7.0f);  
         Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 1.0f, 0.0f);         
-        mTexLightShader.drawVertices(mModelMatrix, mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
+        mTexLightShader.draw(mModelMatrix, cube);
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -5.0f);     
-        mTexLightShader.drawVertices(mModelMatrix, mCubePositions, mCubeColors, mCubeNormals, mCubeTextureCoordinates);
-
-        Matrix.setIdentityM(mModelMatrix, 0);
-        Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -5.0f);      
-        Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 0.0f, 1.0f, 0.0f);
-        Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, 2.0f);
+        mTexLightShader.draw(mModelMatrix, cube);
         
-        mPointShader.drawPoint(mLightModelMatrix);
+        mPointShader.draw(mLightModelMatrix);
     }
 }
