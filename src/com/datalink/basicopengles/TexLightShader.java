@@ -4,51 +4,27 @@ import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 
-public class TexLightShader
-{	
-private static int mProgramHandle = -1;
+public class TexLightShader extends Shader
+{
 
-private static int mPositionHandle;
-private static int mColorHandle;
-private static int mNormalHandle;
-private static int mTextureCoordinateHandle;
+private int mPositionHandle;
+private int mColorHandle;
+private int mNormalHandle;
+private int mTextureCoordinateHandle;
 
-private static int mTextureUniformHandle;
+private int mTextureUniformHandle;
 private int mTextureDataHandle;
 
-private float[] mViewMatrix;
-private float[] mProjectionMatrix;
-private float[] mMVPMatrix = new float[16];
-
-private static int mMVMatrixHandle;
-private static int mMVPMatrixHandle;
+private int mMVMatrixHandle;
+private int mMVPMatrixHandle;
 
 private float[] mLightPosInEyeSpace;
-private static int mLightPositionHandle;
+private int mLightPositionHandle;
 
-static void init(Context activityContext)
+public TexLightShader(float[] viewMatrix, float[] projectionMatrix, int textureDataHandle, float lightPosInEyeSpace[], Context activityContext)
 {
-	String vertexShader = AssetHelpers.loadText("BasicShader.vertex", activityContext);
-    String fragmentShader = AssetHelpers.loadText("BasicShader.fragment", activityContext);
-	final int vertexShaderHandle = ShaderHelpers.shaderBoilerplate(GLES20.GL_VERTEX_SHADER, vertexShader);
-    final int fragmentShaderHandle = ShaderHelpers.shaderBoilerplate(GLES20.GL_FRAGMENT_SHADER, fragmentShader);
-    
-	mProgramHandle = ShaderHelpers.programBoilerplate(vertexShaderHandle, fragmentShaderHandle, new String[] { "a_Position", "a_Color", "a_Normal", "a_TexCoordinate"});
+    super(viewMatrix, projectionMatrix, activityContext);
 
-	// Set program handles for cube drawing.
-    mMVPMatrixHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_MVPMatrix");
-    mMVMatrixHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_MVMatrix"); 
-    mLightPositionHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_LightPos");
-    mPositionHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Position");
-    mColorHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Color");
-    mNormalHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Normal"); 
-    
-    mTextureUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_Texture");
-    mTextureCoordinateHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_TexCoordinate");     
-}
-
-public TexLightShader(float[] viewMatrix, float[] projectionMatrix, int textureDataHandle, float lightPosInEyeSpace[])
-{
 	if(mProgramHandle == -1)
 	{
 		throw new RuntimeException("TexLightShader class used before init() call.");
@@ -58,6 +34,16 @@ public TexLightShader(float[] viewMatrix, float[] projectionMatrix, int textureD
 	mProjectionMatrix = projectionMatrix;
 	mTextureDataHandle = textureDataHandle;
 	mLightPosInEyeSpace = lightPosInEyeSpace;
+
+	mMVPMatrixHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_MVPMatrix");
+	mMVMatrixHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_MVMatrix"); 
+	mLightPositionHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_LightPos");
+	mPositionHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Position");
+	mColorHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Color");
+	mNormalHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Normal"); 
+
+	mTextureUniformHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_Texture");
+	mTextureCoordinateHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_TexCoordinate");
 }
 
 public void draw(float[] modelMatrix, Mesh mesh)
@@ -104,4 +90,22 @@ public void draw(float[] modelMatrix, Mesh mesh)
             
         GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, mesh.positions().capacity() / ShaderHelpers.mPositionDataSize);                               
     }
+
+@Override
+protected String vertexShaderAsset()
+{
+    return "BasicShader.vertex";
+}
+
+@Override
+protected String fragmentShaderAsset()
+{
+    return "BasicShader.fragment";
+}
+
+@Override
+protected String[] attributes()
+{
+    return new String[] { "a_Position", "a_Color", "a_Normal", "a_TexCoordinate"};
+}
 }

@@ -1,5 +1,8 @@
 package com.datalink.basicopengles;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
@@ -24,7 +27,7 @@ public class BasicRenderer implements Renderer{
     private final float[] mLightPosInWorldSpace = new float[4];
     private final float[] mLightPosInEyeSpace = new float[4];
 
-    private TexLightShader mTexLightShader;
+    private Shader mTexLightShader;
     private PointShader mPointShader;
     
     public BasicRenderer(final Context activityContext)
@@ -60,9 +63,7 @@ public class BasicRenderer implements Renderer{
         // Set the view matrix. This matrix can be said to represent the camera position.
         Matrix.setLookAtM(mViewMatrix, 0, eyeX, eyeY, eyeZ, lookX, lookY, lookZ, upX, upY, upZ);
 
-        mTextureDataHandle = AssetHelpers.loadTexture("stone.png", mActivityContext);
-        TexLightShader.init(mActivityContext);
-        
+        mTextureDataHandle = AssetHelpers.loadTexture("stone.png", mActivityContext);  
     }
 
     @Override
@@ -84,7 +85,7 @@ public class BasicRenderer implements Renderer{
         Matrix.frustumM(mProjectionMatrix, 0, left, right, bottom, top, near, far);
         
         //TODO: find out why eye space
-        mTexLightShader = new TexLightShader(mViewMatrix, mProjectionMatrix, mTextureDataHandle, mLightPosInEyeSpace);
+        mTexLightShader = new TexLightShader(mViewMatrix, mProjectionMatrix, mTextureDataHandle, mLightPosInEyeSpace, mActivityContext);
         mPointShader = new PointShader(mViewMatrix, mProjectionMatrix, mActivityContext);
     }
 
@@ -108,10 +109,11 @@ public class BasicRenderer implements Renderer{
         Mesh cube = new CubeMesh();
         
         // Draw some cubes.        
-        Matrix.setIdentityM(mModelMatrix, 0);
-        Matrix.translateM(mModelMatrix, 0, 4.0f, 0.0f, -7.0f);
-        Matrix.rotateM(mModelMatrix, 0, angleInDegrees, 1.0f, 0.0f, 0.0f);        
-        mTexLightShader.draw(mModelMatrix, cube);
+        //Matrix.setIdentityM(mModelMatrix, 0);
+        Drawable rightCube = new Drawable(cube, new ArrayList<Shader>(Arrays.asList(mTexLightShader, mPointShader)));
+        Matrix.translateM(rightCube.mModelMatrix, 0, 4.0f, 0.0f, -7.0f);
+        Matrix.rotateM(rightCube.mModelMatrix, 0, angleInDegrees, 1.0f, 0.0f, 0.0f);        
+        rightCube.draw();
 
         Matrix.setIdentityM(mModelMatrix, 0);
         Matrix.translateM(mModelMatrix, 0, -4.0f, 0.0f, -7.0f);
