@@ -22,7 +22,7 @@ public class PointShader extends Shader
 	@Override
     protected String[] attributes()
     { 
-    	return new String[] { "a_Position", "a_Color", "a_Normal", "a_TexCoordinate"};
+    	return new String[] { "a_Position", "a_Color"};
     }
 	
 	@Override
@@ -41,6 +41,13 @@ public class PointShader extends Shader
     public void draw(float[] modelMatrix, FloatBuffer positions)
     {       
         GLES20.glUseProgram(mProgramHandle);
+        
+        // Use culling to remove back faces.
+        GLES20.glEnable(GLES20.GL_CULL_FACE);
+        // Enable depth testing
+        GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+        
+        GLES20.glDisable(GLES20.GL_BLEND);
 
         final int pointMVPMatrixHandle = GLES20.glGetUniformLocation(mProgramHandle, "u_MVPMatrix");
         final int pointPositionHandle = GLES20.glGetAttribLocation(mProgramHandle, "a_Position");

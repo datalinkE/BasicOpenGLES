@@ -50,6 +50,13 @@ public void draw(float[] modelMatrix, Mesh mesh)
     {	
         GLES20.glUseProgram(mProgramHandle);
         
+        // Use culling to remove back faces.
+        GLES20.glEnable(GLES20.GL_CULL_FACE);
+        // Enable depth testing
+        GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+        
+        GLES20.glDisable(GLES20.GL_BLEND);
+        
         // Set the active texture unit to texture unit 0.
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         // Bind the texture to this unit.

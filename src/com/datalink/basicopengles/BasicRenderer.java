@@ -29,6 +29,7 @@ public class BasicRenderer implements Renderer{
 
     private Shader mTexLightShader;
     private PointShader mPointShader;
+    private BlendShader mBlendShader;
     
     public BasicRenderer(final Context activityContext)
     {
@@ -39,11 +40,6 @@ public class BasicRenderer implements Renderer{
     public void onSurfaceCreated(GL10 glUnused, EGLConfig config)
     {
         GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.1f);
-
-        // Use culling to remove back faces.
-        GLES20.glEnable(GLES20.GL_CULL_FACE);
-        // Enable depth testing
-        GLES20.glEnable(GLES20.GL_DEPTH_TEST);
 
         // Position the eye behind the origin.
         final float eyeX = 0.0f;
@@ -87,6 +83,7 @@ public class BasicRenderer implements Renderer{
         //TODO: find out why eye space
         mTexLightShader = new TexLightShader(mViewMatrix, mProjectionMatrix, mTextureDataHandle, mLightPosInEyeSpace, mActivityContext);
         mPointShader = new PointShader(mViewMatrix, mProjectionMatrix, mActivityContext);
+        mBlendShader = new BlendShader(mViewMatrix, mProjectionMatrix, mActivityContext);
     }
 
     @Override
@@ -135,5 +132,11 @@ public class BasicRenderer implements Renderer{
         mTexLightShader.draw(mModelMatrix, cube);
         
         mPointShader.draw(mLightModelMatrix);
+        
+        Mesh rectangle = new RectangleMesh();
+        
+        Matrix.setIdentityM(mModelMatrix, 0);
+        Matrix.translateM(mModelMatrix, 0, 0.0f, 0.0f, -3.0f);
+        mBlendShader.draw(mModelMatrix, rectangle);
     }
 }
